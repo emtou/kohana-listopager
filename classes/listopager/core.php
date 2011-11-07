@@ -32,4 +32,27 @@ defined('SYSPATH') OR die('No direct access allowed.');
  */
 abstract class ListoPager_Core
 {
+  public $alias       = '';   /** Alias of the ListoPager */
+  public $listo       = NULL; /** Listo instance */
+  public $number_rows = 0;    /** Number of total rows */
+  public $pagination  = NULL; /** Pagination instance */
+
+
+  /**
+   * Instanciate inner Listo with alias
+   *
+   * @return ListoPager instance
+   *
+   * @throws ListoPager_Exception Can't instanciate ListoPager: not alias has been set
+   */
+  public function __construct()
+  {
+    if ($this->alias == '')
+    {
+      throw new ListoPager_Exception(
+        'Can\'t instanciate ListoPager: not alias has been set'
+      );
+    }
+    $this->listo = Listo::factory($this->alias);
+  }
 }
