@@ -180,7 +180,7 @@ abstract class ListoPager_Core
         );
       }
 
-      $this->_load_actions();
+      $this->_load_listo_actions();
       $this->_load_listo_columns();
     }
 
@@ -189,26 +189,27 @@ abstract class ListoPager_Core
 
 
   /**
-   * Loads actions from configuration file
+   * Loads Listo actions' definitions from configuration file
    *
    * @return null
    *
-   * @throws ListoPager_Exception Can't load listopager :alias: configuration variable actions should be an array
+   * @throws ListoPager_Exception Can't load listopager :alias: configuration variable listo.actions should be an array
    */
-  protected function _load_actions()
+  protected function _load_listo_actions()
   {
-    if (isset($this->_config['actions']))
+    if (isset($this->_config['listo'])
+        and isset($this->_config['listo']['actions']))
     {
-      if ( ! is_array($this->_config['actions']))
+      if ( ! is_array($this->_config['listo']['actions']))
       {
         throw new ListoPager_Exception(
-          'Can\'t load listopager :alias: configuration variable actions '.
+          'Can\'t load listopager :alias: configuration variable listo.actions '.
           'should be an array',
           array('alias' => $this->alias)
         );
       }
 
-      $this->listo_actions = $this->_config['actions'];
+      $this->listo_actions = $this->_config['listo']['actions'];
     }
   }
 
