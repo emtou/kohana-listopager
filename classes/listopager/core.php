@@ -32,12 +32,17 @@ defined('SYSPATH') OR die('No direct access allowed.');
  */
 abstract class ListoPager_Core
 {
-  public $alias                 = '';   /** Alias of the ListoPager */
-  public $listo                 = NULL; /** Listo instance */
-  public $number_rows           = 0;    /** Number of total rows */
-  public $number_items_per_page = 10;   /** Number of shown items per page */
-  public $page_items            = NULL; /** List of current page's shown items */
-  public $pagination            = NULL; /** Pagination instance */
+  protected $_config = NULL;               /** configuration array */
+  protected $_loaded = FALSE;              /** Is the configuration loaded ? */
+
+  public $alias                 = '';      /** Alias of the ListoPager */
+  public $config_filename       = '';      /** Configuration file name */
+  public $listo                 = NULL;    /** Listo instance */
+  public $listo_actions         = array(); /** list of Listo_Actions */
+  public $number_rows           = 0;       /** Number of total rows */
+  public $number_items_per_page = 10;      /** Number of shown items per page */
+  public $page_items            = NULL;    /** List of current page's shown items */
+  public $pagination            = NULL;    /** Pagination instance */
 
 
   /**
@@ -56,6 +61,8 @@ abstract class ListoPager_Core
       );
     }
     $this->listo = Listo::factory($this->alias);
+
+    $this->_load();
   }
 
 
@@ -86,6 +93,20 @@ abstract class ListoPager_Core
 
 
   /**
+   * Configures the inner Listo with defined actions
+   *
+   * @return null
+   */
+  protected function _init_listo_actions()
+  {
+    foreach ($this->listo_actions as $action)
+    {
+      $this->listo->add_action($action);
+    }
+  }
+
+
+  /**
    * Instanciates inner Pagination
    *
    * @return null
@@ -98,6 +119,67 @@ abstract class ListoPager_Core
           'items_per_page' => $this->number_items_per_page,
         )
     );
+  }
+
+
+  /**
+   * Load the listopager from configuration file
+   *
+   * @return null
+   *
+   * @throws ListoPager_Exception Can't load listopager :alias: configuration file :fname not found
+   */
+  protected function _load()
+  {
+    if ($this->_loaded)
+    {
+      return;
+    }
+
+    if ($this->config_filename != '')
+    {
+      $config_filename = 'listopager/'.$this->config_filename;
+      $this->_config   = Kohana::config($config_filename);
+      if ( ! $this->_config)
+      {
+        throw new ListoPager_Exception(
+          'Can\'t load listopager :alias: configuration file :fname not found',
+          array(
+            'alias' => $this->alias,
+            'fname' => $config_filename,
+          )
+        );
+      }
+
+      $this->_load_actions();
+    }
+
+    $this->_loaded = TRUE;
+  }
+
+
+  /**
+   * Loads actions from configuration file
+   *
+   * @return null
+   *
+   * @throws ListoPager_Exception Can't load listopager :alias: configuration variable actions should be an array
+   */
+  protected function _load_actions()
+  {
+    if (isset($this->_config['actions']))
+    {
+      if ( ! is_array($this->_config['actions']))
+      {
+        throw new ListoPager_Exception(
+          'Can\'t load listopager :alias: configuration variable actions '.
+          'should be an array',
+          array('alias' => $this->alias)
+        );
+      }
+
+      $this->listo_actions = $this->_config['actions'];
+    }
   }
 
 }
