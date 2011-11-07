@@ -36,6 +36,7 @@ abstract class ListoPager_Core
   public $listo                 = NULL; /** Listo instance */
   public $number_rows           = 0;    /** Number of total rows */
   public $number_items_per_page = 10;   /** Number of shown items per page */
+  public $page_items            = NULL; /** List of current page's shown items */
   public $pagination            = NULL; /** Pagination instance */
 
 
@@ -66,6 +67,20 @@ abstract class ListoPager_Core
    * @return null
    */
   protected function _count_total_items()
+  {
+  }
+
+
+  /**
+   * Fetches current page shown items from database
+   *
+   * Does nothing. Should be overloaded if items are not directly given to the ListoPager
+   *
+   * @return null
+   *
+   * @todo Move this member to a ListoPager_Database specialised object
+   */
+  protected function _fetch_page_items()
   {
   }
 
