@@ -32,18 +32,22 @@ defined('SYSPATH') OR die('No direct access allowed.');
  */
 abstract class ListoPager_Core
 {
-  protected $_config = NULL;               /** configuration array */
-  protected $_loaded = FALSE;              /** Is the configuration loaded ? */
+  protected $_config = NULL;                               /** configuration array */
+  protected $_loaded = FALSE;                              /** Is the configuration loaded ? */
 
-  public $alias                 = '';      /** Alias of the ListoPager */
-  public $config_filename       = '';      /** Configuration file name */
-  public $listo                 = NULL;    /** Listo instance */
-  public $listo_actions         = array(); /** List of Listo_Actions */
-  public $listo_columns         = array(); /** List of Listo columns' definitions */
-  public $number_rows           = 0;       /** Number of total rows */
-  public $number_items_per_page = 10;      /** Number of shown items per page */
-  public $page_items            = NULL;    /** List of current page's shown items */
-  public $pagination            = NULL;    /** Pagination instance */
+  public $alias                            = '';           /** Alias of the ListoPager */
+  public $config_filename                  = '';           /** Configuration file name */
+  public $_default_config_filename         = 'listopager'; /** Default configuration file name */
+  public $listo                            = NULL;         /** Listo instance */
+  public $listo_actions                    = array();      /** List of Listo_Actions */
+  public $listo_columns                    = array();      /** List of Listo columns' definitions */
+  public $listo_multiaction_submit_classes = array();      /** List of CSS classes for Listo's MultiAction submit */
+  public $listo_tablesorter                = TRUE;         /** Use jQuery's tablesorter */
+  public $listo_view                       = '';           /** Listo's view filename */
+  public $number_rows                      = 0;            /** Number of total rows */
+  public $number_items_per_page            = 10;           /** Number of shown items per page */
+  public $page_items                       = NULL;         /** List of current page's shown items */
+  public $pagination                       = NULL;         /** Pagination instance */
 
 
   /**
@@ -63,7 +67,12 @@ abstract class ListoPager_Core
     }
     $this->listo = Listo::factory($this->alias);
 
-    $this->_load();
+    $this->_load($this->_default_config_filename);
+
+    if ($this->config_filename != '')
+    {
+      $this->_load('listopager/'.$this->config_filename);
+    }
   }
 
 
@@ -152,23 +161,89 @@ abstract class ListoPager_Core
 
 
   /**
-   * Load the listopager from configuration file
+   * Renders the javascript code for the inner Listo
+   *
+   * @return string javascript code
+   */
+  protected function _js_code_listo()
+  {
+    $js_code = $this->listo->js_code();
+
+    if (count($this->listo_multiaction_submit_classes) > 0)
+    {
+      $js_code .= '$("input[name=doaction]")'.
+                    '.addClass("'.implode(' ', $this->listo_multiaction_submit_classes).'");';
+    }
+
+    return $js_code;
+  }
+
+
+  /**
+   * Renders the javascript code for jQuery's tablesorter plugin
+   *
+   * @return string javascript code
+   */
+  protected function _js_code_tablesorter()
+  {
+    if ( ! $this->listo_tablesorter)
+      return '';
+
+    $js_code = '$("#'.$this->alias.'")
+                  .tablesorter({
+                    widgets: ["zebra"]';
+
+    $unsortable_columns = array();
+    $count              = 0;
+
+    if ($this->listo->has_multiactions())
+    {
+      $unsortable_columns[] = $count.': {sorter: false}';
+      $count++;
+    }
+
+    foreach ($this->listo_columns as $column)
+    {
+      if (isset($column['sortable'])
+          and ! $column['sortable'])
+      {
+        $unsortable_columns[] = $count.': {sorter: false}';
+      }
+      $count++;
+    }
+
+    if ($this->listo->has_soloactions())
+    {
+      $unsortable_columns[] = $count.': {sorter: false}';
+    }
+
+    if (count($unsortable_columns) > 0)
+    {
+      $js_code .= ', headers: {
+                    '.implode(', ', $unsortable_columns).
+                  '}';
+    }
+
+    $js_code .= '});';
+
+    return $js_code;
+  }
+
+
+  /**
+   * Load a listopager configuration file
+   *
+   * @param string $config_filename Configuration file name
    *
    * @return null
    *
    * @throws ListoPager_Exception Can't load listopager :alias: configuration file :fname not found
    */
-  protected function _load()
+  protected function _load($config_filename)
   {
-    if ($this->_loaded)
+    if ($config_filename != '')
     {
-      return;
-    }
-
-    if ($this->config_filename != '')
-    {
-      $config_filename = 'listopager/'.$this->config_filename;
-      $this->_config   = Kohana::config($config_filename);
+      $this->_config = Kohana::config($config_filename);
       if ( ! $this->_config)
       {
         throw new ListoPager_Exception(
@@ -182,9 +257,8 @@ abstract class ListoPager_Core
 
       $this->_load_listo_actions();
       $this->_load_listo_columns();
+      $this->_load_listo_params();
     }
-
-    $this->_loaded = TRUE;
   }
 
 
@@ -238,4 +312,258 @@ abstract class ListoPager_Core
       $this->listo_columns = $this->_config['listo']['columns'];
     }
   }
+
+
+  /**
+   * Loads Listo's multiaction_submit_classes param definition from configuration file
+   *
+   * @return null
+   *
+   * @throws ListoPager_Exception Can't load listopager :alias:
+   *                              configuration variable listo.params.multiaction_submit_classes should be an array
+   */
+  protected function _load_listo_param_multiaction_submit_classes()
+  {
+    if (isset($this->_config['listo']['params']['multiaction_submit_classes']))
+    {
+      if ( ! is_array($this->_config['listo']['params']['multiaction_submit_classes']))
+      {
+        throw new ListoPager_Exception(
+          'Can\'t load listopager :alias: configuration variable listo.params.multiaction_submit_classes '.
+          'should be an array',
+          array('alias' => $this->alias)
+        );
+      }
+
+      $this->listo_multiaction_submit_classes = $this->_config['listo']['params']['multiaction_submit_classes'];
+    }
+  }
+
+
+  /**
+   * Loads Listo's tablesorter param definition from configuration file
+   *
+   * @return null
+   *
+   * @throws ListoPager_Exception Can't load listopager :alias:
+   *                              configuration variable listo.params.tablesorter should be a boolean
+   */
+  protected function _load_listo_param_tablesorter()
+  {
+    if (isset($this->_config['listo']['params']['tablesorter']))
+    {
+      if ( ! is_bool($this->_config['listo']['params']['tablesorter']))
+      {
+        throw new ListoPager_Exception(
+          'Can\'t load listopager :alias: configuration variable listo.params.tablesorter '.
+          'should be a boolean',
+          array('alias' => $this->alias)
+        );
+      }
+
+      $this->listo_tablesorter = $this->_config['listo']['params']['tablesorter'];
+    }
+  }
+
+
+  /**
+   * Loads Listo's view param definition from configuration file
+   *
+   * @return null
+   *
+   * @throws ListoPager_Exception Can't load listopager :alias:
+   *                              configuration variable listo.params.view should be a string
+   */
+  protected function _load_listo_param_view()
+  {
+    if (isset($this->_config['listo']['params']['view']))
+    {
+      if ( ! is_string($this->_config['listo']['params']['view']))
+      {
+        throw new ListoPager_Exception(
+          'Can\'t load listopager :alias: configuration variable listo.params.view '.
+          'should be a string',
+          array('alias' => $this->alias)
+        );
+      }
+
+      $this->listo_view = $this->_config['listo']['params']['view'];
+    }
+  }
+
+
+  /**
+   * Loads Listo params' definitions from configuration file
+   *
+   * @return null
+   *
+   * @throws ListoPager_Exception Can't load listopager :alias: configuration params should be an array
+   */
+  protected function _load_listo_params()
+  {
+    if (isset($this->_config['listo'])
+        and isset($this->_config['listo']['params']))
+    {
+      if ( ! is_array($this->_config['listo']['params']))
+      {
+        throw new ListoPager_Exception(
+          'Can\'t load listopager :alias: configuration variable listo.columns '.
+          'should be an array',
+          array('alias' => $this->alias)
+        );
+      }
+
+      $this->_load_listo_param_tablesorter();
+      $this->_load_listo_param_view();
+      $this->_load_listo_param_multiaction_submit_classes();
+    }
+  }
+
+
+  /**
+   * Performs last tweaks on the inner Listo before final rendering
+   *
+   * - sets the Listo's view
+   * - add tablesorter CSS class to inner Listo's inner table
+   *
+   * @return null
+   */
+  protected function _pre_render_listo()
+  {
+    $this->_set_listo_view();
+
+    if ($this->listo_tablesorter == TRUE)
+    {
+      $this->listo->table->set_attributes('class="tablesorter"', '');
+    }
+  }
+
+
+  /**
+   * Renders a message when nothing is to be shown by the inner Listo
+   *
+   * @return string empty string
+   */
+  protected function _render_empty_listo()
+  {
+    return '';
+  }
+
+
+  /**
+   * Renders a message when nothing is to be shown by the inner Pagination
+   *
+   * @return string empty string
+   */
+  protected function _render_empty_pagination()
+  {
+    return '';
+  }
+
+
+  /**
+   * Configures the Listo's view file with inner parameter
+   *
+   * @return null
+   */
+  protected function _set_listo_view()
+  {
+    if ($this->listo_view != '')
+    {
+      $this->listo->set_view($this->listo_view);
+    }
+  }
+
+
+  /**
+   * Initialises the inner Listo
+   *
+   * Chainable method
+   *
+   * @return this
+   *
+   * @todo Move this particular member to a ListoPager_Database specialised objet
+   */
+  public function init()
+  {
+    $this->_count_total_items();
+
+    $this->_init_pagination();
+
+    $this->_fetch_page_items();
+
+    if (count($this->page_items) > 0)
+    {
+      $this->_init_listo_actions();
+      $this->_init_listo_columns();
+      $this->listo->set_data($this->page_items);
+    }
+
+    return $this;
+  }
+
+
+  /**
+   * Javascript code for the inner Listo
+   *
+   * @return string javascript code
+   */
+  public function js_code()
+  {
+    if (count($this->page_items) == 0)
+      return '';
+
+    $js_code  = $this->_js_code_listo()."\n";
+    $js_code .= $this->_js_code_tablesorter()."\n";
+
+    return '$(function() {
+              '.$js_code.'
+           });';
+  }
+
+
+  /**
+   * Renders the inner Listo
+   *
+   * @return string HTML
+   */
+  public function render_listo()
+  {
+    if (count($this->page_items) == 0)
+      return $this->_render_empty_listo();
+
+    $this->_pre_render_listo();
+
+    return $this->listo->render();
+  }
+
+
+  /**
+   * Renders the inner Pagination
+   *
+   * @return string HTML
+   */
+  public function render_pagination()
+  {
+    if (count($this->page_items) == 0)
+      return $this->_render_empty_pagination();
+
+    return $this->pagination->render();
+  }
+
+
+  /**
+   * Sets the page shown elements
+   *
+   * @param array|Countable $elements list of elements to shown on current page
+   *
+   * @return null
+   */
+  public function set_page_items($elements)
+  {
+    $this->page_items = $elements;
+
+    $this->number_rows = count($elements);
+  }
+
 }
