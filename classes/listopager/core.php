@@ -38,7 +38,8 @@ abstract class ListoPager_Core
   public $alias                 = '';      /** Alias of the ListoPager */
   public $config_filename       = '';      /** Configuration file name */
   public $listo                 = NULL;    /** Listo instance */
-  public $listo_actions         = array(); /** list of Listo_Actions */
+  public $listo_actions         = array(); /** List of Listo_Actions */
+  public $listo_columns         = array(); /** List of Listo columns' definitions */
   public $number_rows           = 0;       /** Number of total rows */
   public $number_items_per_page = 10;      /** Number of shown items per page */
   public $page_items            = NULL;    /** List of current page's shown items */
@@ -107,6 +108,34 @@ abstract class ListoPager_Core
 
 
   /**
+   * Configures the inner Listo with defined columns
+   *
+   * @return null
+   */
+  protected function _init_listo_columns()
+  {
+    $alignments = array();
+    $keys       = array();
+    $titles     = array();
+
+    foreach ($this->listo_columns as $column)
+    {
+      $alignments[] = (isset($column['align'])?$column['align']:'left');
+      $keys[]       = $column['alias'];
+      $titles[]     = $column['label'];
+
+      if (isset($column['callback']))
+      {
+        $this->listo->add_table_callback($column['callback'], 'column', $column['alias']);
+      }
+    }
+    $this->listo->set_column_attributes('align', $alignments);
+    $this->listo->set_column_keys($keys);
+    $this->listo->set_column_titles($titles);
+  }
+
+
+  /**
    * Instanciates inner Pagination
    *
    * @return null
@@ -152,6 +181,7 @@ abstract class ListoPager_Core
       }
 
       $this->_load_actions();
+      $this->_load_listo_columns();
     }
 
     $this->_loaded = TRUE;
@@ -182,4 +212,29 @@ abstract class ListoPager_Core
     }
   }
 
+
+  /**
+   * Loads Listo columns' definitions from configuration file
+   *
+   * @return null
+   *
+   * @throws ListoPager_Exception Can't load listopager :alias: configuration variable listo.columns should be an array
+   */
+  protected function _load_listo_columns()
+  {
+    if (isset($this->_config['listo'])
+        and isset($this->_config['listo']['columns']))
+    {
+      if ( ! is_array($this->_config['listo']['columns']))
+      {
+        throw new ListoPager_Exception(
+          'Can\'t load listopager :alias: configuration variable listo.columns '.
+          'should be an array',
+          array('alias' => $this->alias)
+        );
+      }
+
+      $this->listo_columns = $this->_config['listo']['columns'];
+    }
+  }
 }
