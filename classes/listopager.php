@@ -30,6 +30,6 @@ defined('SYSPATH') OR die('No direct access allowed.');
  * @license   http://www.debian.org/misc/bsd.license BSD License (3 Clause)
  * @link      https://github.com/emtou/kohana-listopager/tree/master/classes/listopager.php
  */
-class ListoPager extends ListoPager_Core
+abstract class ListoPager extends ListoPager_Core
 {
 }
